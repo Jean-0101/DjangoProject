@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yetkili Paneli</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        a.action-link {
+            color: red;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a.action-link:hover {
+            text-decoration: underline;
+        }
+        button {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .approve-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .approve-btn:hover {
+            background-color: #45a049;
+        }
+        .reject-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        .reject-btn:hover {
+            background-color: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <h1>Yetkili Paneli</h1>
+
+    <!-- Logout Button -->
+    <form method="POST" action="{% url 'user_logout' %}">
+        {% csrf_token %}
+        <button type="submit">Çıkış Yap</button>
+    </form>
+
+    <h2>Personel Listesi</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>İsim</th>
+                <th>Soyisim</th>
+                <th>Kullanıcı Adı</th>
+                <th>Kalan İzin Günü</th>
+                <th>Kalan İzin 3 Günden Az Mı?</th>
+                <th>Bugün Geç Kaldı Mı?</th>
+                <th>Sil</th>
+                <th>Çalışma Saatleri Girişi</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for person in personnel %}
+            <tr data-user-id="{{ person.id }}">
+                <td>{{ person.first_name }}</td>
+                <td>{{ person.last_name }}</td>
+                <td>{{ person.username }}</td>
+                <td class="remaining-leave">{{ person.remaining_leave }}</td>
+                <td>{{ person.less_than_3_days }}</td>
+                <td>{{ person.today_late }}</td>
+                <td>
+                    <a href="{% url 'remove_personnel' person.id %}" class="action-link">Sil</a>
+                </td>
+                <td>
+                    <a href="{% url 'work_hours_entry' person.id %}" class="action-link">Çalışma Saatleri Girişi</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Personel Ekle</h2>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Ekle</button>
+    </form>
+
+    <!-- İzin Talepleri Tablosu -->
+    <h2>İzin Talepleri</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>İsim</th>
+                <th>Soyisim</th>
+                <th>Talep Edilen Gün Sayısı</th>
+                <th>Onayla</th>
+                <th>Reddet</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for request in leave_requests %}
+            <tr id="leave-request-{{ request.id }}">
+                <td>{{ request.user.first_name }}</td>
+                <td>{{ request.user.last_name }}</td>
+                <td>{{ request.days_requested }}</td>
+                <td>
+                    <button type="button" class="approve-btn" onclick="handleApprove('{{ request.id }}')">Onayla</button>
+                </td>
+                <td>
+                    <button type="button" class="reject-btn" onclick="handleReject('{{ request.id }}')">Reddet</button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">İzin talebi bulunmamaktadır.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        // İzin talebini onayla
+        function handleApprove(requestId) {
+            fetch(`/approve-leave-request/${requestId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // İlgili talep satırını kaldır
+                    document.getElementById(`leave-request-${requestId}`).remove();
+
+                    // İlgili personelin kalan izin gününü güncelle
+                    const personnelRow = document.querySelector(`tr[data-user-id="${data.user_id}"]`);
+                    const remainingLeaveCell = personnelRow.querySelector('.remaining-leave');
+                    remainingLeaveCell.textContent = data.new_remaining_leave;
+
+                    alert('İzin talebi onaylandı.');
+                }
+            })
+            .catch(error => {
+                console.error('Hata:', error);
+            });
+        }
+
+        // İzin talebini reddet
+        function handleReject(requestId) {
+            fetch(`/reject-leave-request/${requestId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // İlgili satırı kaldır
+                    document.getElementById(`leave-request-${requestId}`).remove();
+                    alert('İzin talebi reddedildi.');
+                } else {
+                    alert(data.error || 'Bir hata oluştu.');
+                }
+            })
+            .catch(error => {
+                console.error('Hata:', error);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Çalışma Saatleri Özeti</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <h1>Çalışma Saatleri Özeti</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Tarih</th>
+                <th>İlk Giriş</th>
+                <th>Son Çıkış</th>
+                <th>Toplam Çalışma Saati</th>
+                <th>Toplam Eksik</th>
+                <th>Geç Kalma</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in summary_data %}
+            <tr>
+                <td>{{ log.date }}</td>
+                <td>{{ log.first_check_in|date:"H:i" }}</td>
+                <td>{{ log.last_check_out|date:"H:i" }}</td>
+                <td>{{ log.total_work_hours }}</td>
+                <td>{{ log.missing_hours }}</td>
+                <td>{{ log.late }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6">Henüz veri yok.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

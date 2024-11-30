@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personel Paneli</title>
+    <style>
+        /* Design remains unchanged */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        button {
+            margin: 10px 0;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .spacer {
+            height: 10px;
+        }
+        .message {
+            margin-left: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Personel Paneli</h1>
+    <p>Merhaba, {{ user.username }}! Personel olarak giriş yaptınız.</p>
+
+    <!-- Logout Button -->
+    <form method="POST" action="{% url 'user_logout' %}">
+        {% csrf_token %}
+        <button type="submit">Çıkış Yap</button>
+    </form>
+
+    <div>
+        <h2>Personel Giriş Ekranı</h2>
+        <!-- Personel Girişi Yap -->
+        <button id="checkInButton">Personel Girişi Yap</button>
+        <span id="checkInMessage" class="message"></span>
+        <div class="spacer"></div> <!-- Butonlar arası boşluk -->
+
+        <!-- Personel Çıkışı Yap -->
+        <button id="checkOutButton">Personel Çıkışı Yap</button>
+        <span id="checkOutMessage" class="message"></span>
+    </div>
+
+    <!-- İzin Talebi Alanı -->
+    <div id="leaveRequestContainer" style="margin-top: 20px;">
+        <h2>İzin Talebi</h2>
+        <form id="leaveRequestForm" method="POST" action="{% url 'leave_request' %}">
+            {% csrf_token %}
+            <label>
+                <input id="leaveDays" type="number" name="days" value="1" min="1" max="30" style="width: 50px;" />
+                <span style="margin-left: 10px;"><strong>gün izin talep ediyorum </strong></span>
+            </label>
+            <button type="button" id="sendLeaveRequest" style="margin-left: 10px;">İzin Talebi Gönder</button>
+        </form>
+    </div>
+
+    <!-- Mesaj Alanı -->
+    <div id="messageBox" style="margin-top: 20px; font-weight: bold;"></div>
+
+    <!-- JavaScript -->
+    <script>
+        // Format timestamp as "YYYY-MM-DD HH:MM:SS"
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+        }
+
+        // Handle check-in
+        document.getElementById('checkInButton').addEventListener('click', function () {
+            fetch("{% url 'check_in' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value,
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const messageSpan = document.getElementById('checkInMessage');
+                if (data.success) {
+                    const formattedTimestamp = formatTimestamp(data.timestamp);
+                    messageSpan.textContent = `Personel Girişi Yapıldı: ${formattedTimestamp}`;
+                    messageSpan.style.color = "green";
+                } else if (data.message && data.message.startsWith("Already checked in at")) {
+                    const timestamp = data.message.split("at: ")[1].trim();
+                    const formattedTimestamp = formatTimestamp(timestamp);
+                    messageSpan.textContent = `Çoktan Giriş Yapıldı: ${formattedTimestamp}`;
+                    messageSpan.style.color = "red";
+                } else {
+                    messageSpan.textContent = data.message || "Bilinmeyen bir hata oluştu.";
+                    messageSpan.style.color = "red";
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                const messageSpan = document.getElementById('checkInMessage');
+                messageSpan.textContent = "Personel girişi sırasında bir hata oluştu.";
+                messageSpan.style.color = "red";
+            });
+        });
+
+        // Handle check-out
+        document.getElementById('checkOutButton').addEventListener('click', function () {
+            fetch("{% url 'check_out' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value,
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const messageSpan = document.getElementById('checkOutMessage');
+                if (data.success) {
+                    const formattedTimestamp = formatTimestamp(data.timestamp);
+                    messageSpan.textContent = `Çıkış Yapıldı: ${formattedTimestamp}`;
+                    messageSpan.style.color = "green";
+                } else {
+                    messageSpan.textContent = data.message || "Bilinmeyen bir hata oluştu.";
+                    messageSpan.style.color = "red";
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                const messageSpan = document.getElementById('checkOutMessage');
+                messageSpan.textContent = "Personel çıkışı sırasında bir hata oluştu.";
+                messageSpan.style.color = "red";
+            });
+        });
+
+        // Handle leave request
+        document.getElementById('sendLeaveRequest').addEventListener('click', function () {
+            const leaveDaysInput = document.getElementById('leaveDays');
+            const leaveDays = leaveDaysInput.value;
+            const messageBox = document.getElementById('messageBox');
+
+            if (leaveDays > 0 && leaveDays <= 30) {
+                fetch("{% url 'leave_request' %}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value,
+                    },
+                    body: new URLSearchParams({ days: leaveDays }),
+                })
+                .then((response) => {
+                    if (!response.ok) throw new Error("Talep gönderilirken hata oluştu.");
+                    return response.json();
+                })
+                .then((data) => {
+                    if (data.message) {
+                        messageBox.textContent = data.message;
+                        messageBox.style.color = "green";
+                    } else {
+                        messageBox.textContent = "Bilinmeyen bir hata oluştu.";
+                        messageBox.style.color = "red";
+                    }
+                })
+                .catch((error) => {
+                    console.error(error);
+                    messageBox.textContent = "Talep gönderilemedi.";
+                    messageBox.style.color = "red";
+                });
+            } else {
+                messageBox.textContent = 'Lütfen 1 ile 30 arasında bir değer giriniz.';
+                messageBox.style.color = "red";
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Çalışma Saatleri</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .button-container {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .button-container button {
+            margin-left: 20px;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button-container button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>{{ person.first_name }} {{ person.last_name }}</h1>
+    <div class="button-container">
+        <h1>Çalışma Saatleri</h1>
+        <button id="downloadReport">Rapor İndir</button>
+    </div>
+
+    <!-- Günlük Çalışma Tablosu -->
+    <h2>Günlük Özet</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Tarih</th>
+                <th>İlk Giriş</th>
+                <th>Son Çıkış</th>
+                <th>Toplam Çalışma Süresi</th>
+                <th>Toplam Eksik</th>
+                <th>Geç Kalma</th>
+                <th>Geç Kalma Süresi</th>
+                <th>Toplam Kalan İzin</th>
+                <th>Kalan İzin 3 Günden Az Mı?</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in summary_data %}
+            <tr>
+                <td>{{ log.date|date:"d-m-Y" }}</td>
+                <td>{{ log.first_check_in|date:"H:i" }}</td>
+                <td>{{ log.last_check_out|date:"H:i" }}</td>
+                <td>{{ log.total_work_time }}</td>
+                <td>{{ log.missing_hours }}</td>
+                <td>{{ log.late }}</td>
+                <td>{{ log.late_duration }}</td>
+                <td>{{ log.remaining_leave }}</td>
+                <td>{{ log.less_than_3_days }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9">Henüz günlük özet kaydı bulunmamaktadır.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Ayrıntılı Çalışma Saatleri Tablosu -->
+    <h2>Ayrıntılı Çalışma Saatleri</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Tarih</th>
+                <th>Giriş Saati</th>
+                <th>Çıkış Saati</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in work_logs %}
+            <tr>
+                <td>{{ log.date|date:"d-m-Y" }}</td>
+                <td>{{ log.check_in_time|date:"H:i" }}</td>
+                <td>{{ log.check_out_time|date:"H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3">Henüz giriş-çıkış kaydı bulunmamaktadır.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        document.getElementById('downloadReport').addEventListener('click', function () {
+            const button = this;
+            button.disabled = true;
+
+            fetch("{% url 'download_report' person.id %}")
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Rapor indirilemedi.');
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = "{{ person.first_name }}_{{ person.last_name }}_report.xlsx";
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    button.textContent = "Rapor İndirildi";
+                })
+                .catch(error => {
+                    console.error('Hata:', error);
+                    button.disabled = false;
+                });
+        });
+    </script>
+</body>
+</html>
